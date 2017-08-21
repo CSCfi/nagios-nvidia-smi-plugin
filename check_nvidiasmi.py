@@ -25,6 +25,29 @@ class Utilization(nagiosplugin.Resource):
             gpuTemp = float(temperature.find('gpu_temp').text.strip(' C'))
             yield nagiosplugin.Metric('gpuTemp', gpuTemp, '')
 
+	    ecc_errors = gpu.find('ecc_errors')
+	    ecc_errors_aggregate = ecc_errors.find('aggregate')
+	    ecc_errors_aggregate_double = ecc_errors_aggregate.find('double_bit')
+	    ecc_errors_aggregate_double_total = ecc_errors_aggregate_double.find('total')
+	    ecc_errors_aggregate_single = ecc_errors_aggregate.find('single_bit')
+	    ecc_errors_aggregate_single_total = ecc_errors_aggregate_single.find('total')
+
+            double_bit_agg = int(ecc_errors_aggregate_double_total.text)
+            single_bit_agg = int(ecc_errors_aggregate_single_total.text)
+            yield nagiosplugin.Metric('single_bit_agg', single_bit_agg, '')
+            yield nagiosplugin.Metric('double_bit_agg', double_bit_agg, '')
+
+            power = gpu.find('power_readings')
+            power_draw = float(power.find('power_draw').text.strip(' W'))
+            yield nagiosplugin.Metric('powerDraw', power_draw, '')
+
+            retired_pages = gpu.find('retired_pages')
+            multiple_sbr = int(retired_pages.find('multiple_single_bit_retirement').find('retired_count').text)
+            dbr = int(retired_pages.find('double_bit_retirement').find('retired_count').text)
+            yield nagiosplugin.Metric('multiple_sbr', multiple_sbr, '')
+            yield nagiosplugin.Metric('dbr', dbr, '')
+
+
 @nagiosplugin.guarded
 def main():
     argp = argparse.ArgumentParser(description='Nagios plugin to check Nvidia GPU status using nvidia-smi')
@@ -43,6 +66,16 @@ def main():
                       help='warning if threshold is outside RANGE')
     argp.add_argument('-T', '--gputemp_critical', metavar='RANGE', default=0,
                       help='critical if threshold is outside RANGE')
+
+    argp.add_argument('-n', '--ecc_error_warning', metavar='RANGE', default=0,
+                      help='warning if threshold is outside RANGE')
+    argp.add_argument('-N', '--ecc_error_critical', metavar='RANGE', default=0,
+                      help='critical if threshold is outside RANGE')
+
+    argp.add_argument('-p', '--power_draw_warning', metavar='RANGE', default=0,
+                      help='warning if threshold is outside RANGE')
+    argp.add_argument('-P', '--power_draw_critical', metavar='RANGE', default=0,
+                      help='critical if threshold is outside RANGE')
     
     argp.add_argument('-d', '--device', default="0",
                       help='Device ID (starting from 0)')
@@ -56,7 +89,12 @@ def main():
             Utilization(args),
             nagiosplugin.ScalarContext('gpuutil', args.gpu_warning, args.gpu_critical),
             nagiosplugin.ScalarContext('memutil', args.mem_warning, args.mem_critical),
-            nagiosplugin.ScalarContext('gpuTemp', args.gputemp_warning, args.gputemp_critical)
+            nagiosplugin.ScalarContext('gpuTemp', args.gputemp_warning, args.gputemp_critical),
+            nagiosplugin.ScalarContext('single_bit_agg', args.ecc_error_warning, args.ecc_error_critical),
+            nagiosplugin.ScalarContext('double_bit_agg', args.ecc_error_warning, args.ecc_error_critical),
+            nagiosplugin.ScalarContext('powerDraw', args.power_draw_warning, args.power_draw_critical),
+            nagiosplugin.ScalarContext('multiple_sbr', args.ecc_error_warning, args.ecc_error_critical),
+            nagiosplugin.ScalarContext('dbr', args.ecc_error_warning, args.ecc_error_critical),
             )
     check.main(verbose=args.verbose)
 
